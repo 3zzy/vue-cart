@@ -1,4 +1,5 @@
 <template>
+  <MouseTracker v-slot="{ x, y, count }">Mouse is at: {{ x }}, {{ y }} - {{ count }}</MouseTracker>
   <div class="drawer">
     <input id="drawer-input" type="checkbox" class="drawer-toggle" />
     <div class="bg-base-100 text-base-content min-h-screen drawer-content">
@@ -23,8 +24,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, provide } from 'vue';
 import Nav from './components/Nav.vue';
+import MouseTracker from './components/MouseTracker.vue';
 import { usePersistCart } from './composables/usePersistCart';
 import { useCartStore } from './store/cart';
 import { useProductStore } from './store/products';
@@ -32,8 +34,11 @@ import { useProductStore } from './store/products';
 const productStore = useProductStore();
 const cartStore = useCartStore();
 
+console.log({ productStore, cartStore });
+
 productStore.fetchAll();
 usePersistCart();
 
 const count = computed(() => cartStore.count);
+provide('count', count)
 </script>
