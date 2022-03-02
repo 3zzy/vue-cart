@@ -10,6 +10,7 @@ class MyApp extends HTMLElement {
     render() {
         const baseUrl = this.getAttribute('base-url') || '';
         const mountId = this.getAttribute('mount-id') || 'app';
+        console.log(`rendering app with baseUrl: ${baseUrl} and mountId: ${mountId}`);
         const shadow = this.attachShadow({ mode: 'open' });
         shadow.innerHTML = `
             <link rel="stylesheet" href="${baseUrl}/dist/style.css">
@@ -54,7 +55,7 @@ class MyApp extends HTMLElement {
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
-        this.render();
+        console.log(`attributeChangedCallback: ${name} ${oldValue} ${newValue}`);
     }
 }
 customElements.define("my-app", MyApp);
