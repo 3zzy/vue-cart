@@ -6,14 +6,12 @@ import App from "./App.vue";
 import './assets/styles/tailwind.css';
 
 class MyApp extends HTMLElement {
-    constructor() {
-        super();
-    }
-    connectedCallback() {
-        const mountId = `embeddable-app-test-2121`;
+    render() {
+        const baseUrl = this.getAttribute('base-url') || '';
+        const mountId = this.getAttribute('mount-id') || 'app';
         const shadow = this.attachShadow({ mode: 'open' });
         shadow.innerHTML = `
-            <link rel="stylesheet" href="dist/style.css">
+            <link rel="stylesheet" href="${baseUrl}/dist/style.css">
             <slot name="title">Title</slot>
             <slot name="byline">Short Description</slot>
             <div id="${mountId}"></div>
@@ -41,6 +39,12 @@ class MyApp extends HTMLElement {
             $customElement: this
         };
         app.mount(mountNode);
+    }
+    connectedCallback() {
+        if (!this.rendered) {
+            this.render();
+            this.rendered = true;
+        }
     }
 }
 customElements.define("my-app", MyApp);
