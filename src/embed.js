@@ -19,6 +19,7 @@ class MyApp extends HTMLElement {
             <div id="${mountId}"></div>
             <style>
             :host {
+                all: initial;
                 display: block;
                 border: 5px solid blue;
                 padding: 20px;
