@@ -25,5 +25,5 @@
                 color: var(--embedded-app-byline-color, blue);
             }
             </style>
-        `;const r=s.querySelector(`#${n}`),o=Cc(),i=xc(aa);i.use(o),i.use(Sf),i.config.globalProperties={$customElement:this},i.mount(r)}connectedCallback(){this.rendered||(this.render(),this.rendered=!0)}}customElements.define("my-app",da)});
+        `;const r=s.querySelector(`#${n}`),o=Cc(),i=xc(aa);i.use(o),i.use(Sf),i.config.globalProperties={$customElement:this},i.mount(r)}connectedCallback(){this.rendered||(this.render(),this.rendered=!0)}static get observedAttributes(){return["base-url","mount-id"]}attributeChangedCallback(t,n,s){this.render()}}customElements.define("my-app",da)});
 //# sourceMappingURL=index.umd.js.map
