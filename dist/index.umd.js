@@ -13,6 +13,7 @@
             <div id="${n}"></div>
             <style>
             :host {
+                all: initial;
                 display: block;
                 border: 5px solid blue;
                 padding: 20px;
