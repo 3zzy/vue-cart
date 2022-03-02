@@ -22,6 +22,7 @@ class MyApp extends HTMLElement {
                 display: block;
                 border: 5px solid blue;
                 padding: 20px;
+                box-sizing: border-box;
             }
             ::slotted(.title) {
                 color: blue;

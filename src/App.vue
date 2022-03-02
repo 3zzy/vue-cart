@@ -1,21 +1,21 @@
 <template>
-  <div id="my-vue-app">
+  <div id="my-vue-app" data-theme="bumblebee">
+    <h1 class="text-6xl font-normal leading-normal mt-0 mb-2 text-red-500">Vue App</h1>
     <div class="mb-5">
-      I have access to the Custom Element instance. Muahahah! 😈
+      <h5 class="text-2xl font-normal leading-normal mt-0 mb-2 text-lime-600">Custom Element Attributes:</h5>
       <ul>
         <li v-for="attr in $customElement.attributes" :key="attr.name">
           {{ attr.name }}: {{ attr.value }}
         </li>
       </ul>
     </div>
-
     <MouseTracker v-slot="{ x, y, count }">
       <div class="mb-5">
-        <h1>Test scoped slots:</h1>
+        <h5 class="text-2xl font-normal leading-normal mt-0 mb-2 text-lime-600">Scoped Slots:</h5>
         <p>Mouse is at: <strong>{{ x }}</strong>, <strong>{{ y }}</strong></p>
       </div>
       <div class="mb-5">
-        <h1>Test injected data:</h1>
+        <h5 class="text-2xl font-normal leading-normal mt-0 mb-2 text-lime-600">Injected Data:</h5>
         <p>Cart count: <strong>{{ count }}</strong></p>
       </div>
     </MouseTracker>
