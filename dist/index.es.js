@@ -6440,9 +6440,6 @@ function applyToParams(fn, params) {
     return newParams;
 }
 let noop = () => { };
-
-const TRAILING_SLASH_RE = /\/$/;
-const removeTrailingSlash = (path) => path.replace(TRAILING_SLASH_RE, '');
 /**
  * Transforms an URI into a normalized history location
  *
@@ -6486,19 +6483,6 @@ function parseURL(parseQuery, location, currentLocation = '/') {
 function stringifyURL(stringifyQuery, location) {
     let query = location.query ? stringifyQuery(location.query) : '';
     return location.path + (query && '?') + query + (location.hash || '');
-}
-/**
- * Strips off the base from the beginning of a location.pathname in a non
- * case-sensitive way.
- *
- * @param pathname - location.pathname
- * @param base - base to strip off
- */
-function stripBase(pathname, base) {
-    // no base or base is not found at the beginning
-    if (!base || pathname.toLowerCase().indexOf(base.toLowerCase()))
-        return pathname;
-    return pathname.slice(base.length) || '/';
 }
 /**
  * Checks if two RouteLocation are equal. This means that both locations are
@@ -6604,35 +6588,10 @@ var NavigationDirection;
     NavigationDirection["forward"] = "forward";
     NavigationDirection["unknown"] = "";
 })(NavigationDirection || (NavigationDirection = {}));
-// Generic utils
 /**
- * Normalizes a base by removing any trailing slash and reading the base tag if
- * present.
- *
- * @param base - base to normalize
+ * Starting location for Histories
  */
-function normalizeBase(base) {
-    if (!base) {
-        if (isBrowser) {
-            // respect <base> tag
-            const baseEl = document.querySelector('base');
-            base = (baseEl && baseEl.getAttribute('href')) || '/';
-            // strip full URL origin
-            base = base.replace(/^\w+:\/\/[^\/]+/, '');
-        }
-        else {
-            base = '/';
-        }
-    }
-    // ensure leading slash when it was removed by the regex above avoid leading
-    // slash with hash because the file could be read from the disk like file://
-    // and the leading slash would cause problems
-    if (base[0] !== '/' && base[0] !== '#')
-        base = '/' + base;
-    // remove the trailing slash so all other method can just do `base + fullPath`
-    // to build an href
-    return removeTrailingSlash(base);
-}
+const START = '';
 // remove any character before the hash
 const BEFORE_HASH_RE = /^[^#]+#/;
 function createHref(base, location) {
@@ -6690,244 +6649,87 @@ function getSavedScrollPosition(key) {
     scrollPositions.delete(key);
     return scroll;
 }
-// TODO: RFC about how to save scroll position
-/**
- * ScrollBehavior instance used by the router to compute and restore the scroll
- * position when navigating.
- */
-// export interface ScrollHandler<ScrollPositionEntry extends HistoryStateValue, ScrollPosition extends ScrollPositionEntry> {
-//   // returns a scroll position that can be saved in history
-//   compute(): ScrollPositionEntry
-//   // can take an extended ScrollPositionEntry
-//   scroll(position: ScrollPosition): void
-// }
-// export const scrollHandler: ScrollHandler<ScrollPosition> = {
-//   compute: computeScroll,
-//   scroll: scrollToPosition,
-// }
 
-let createBaseLocation = () => location.protocol + '//' + location.host;
 /**
- * Creates a normalized history location from a window.location object
- * @param location -
+ * Creates a in-memory based history. The main purpose of this history is to handle SSR. It starts in a special location that is nowhere.
+ * It's up to the user to replace that location with the starter location by either calling `router.push` or `router.replace`.
+ *
+ * @param base - Base applied to all urls, defaults to '/'
+ * @returns a history object that can be passed to the router constructor
  */
-function createCurrentLocation(base, location) {
-    const { pathname, search, hash } = location;
-    // allows hash bases like #, /#, #/, #!, #!/, /#!/, or even /folder#end
-    const hashPos = base.indexOf('#');
-    if (hashPos > -1) {
-        let slicePos = hash.includes(base.slice(hashPos))
-            ? base.slice(hashPos).length
-            : 1;
-        let pathFromHash = hash.slice(slicePos);
-        // prepend the starting slash to hash so the url starts with /#
-        if (pathFromHash[0] !== '/')
-            pathFromHash = '/' + pathFromHash;
-        return stripBase(pathFromHash, '');
-    }
-    const path = stripBase(pathname, base);
-    return path + search + hash;
-}
-function useHistoryListeners(base, historyState, currentLocation, replace) {
+function createMemoryHistory(base = '') {
     let listeners = [];
-    let teardowns = [];
-    // TODO: should it be a stack? a Dict. Check if the popstate listener
-    // can trigger twice
-    let pauseState = null;
-    const popStateHandler = ({ state, }) => {
-        const to = createCurrentLocation(base, location);
-        const from = currentLocation.value;
-        const fromState = historyState.value;
-        let delta = 0;
-        if (state) {
-            currentLocation.value = to;
-            historyState.value = state;
-            // ignore the popstate and reset the pauseState
-            if (pauseState && pauseState === from) {
-                pauseState = null;
-                return;
-            }
-            delta = fromState ? state.position - fromState.position : 0;
+    let queue = [START];
+    let position = 0;
+    function setLocation(location) {
+        position++;
+        if (position === queue.length) {
+            // we are at the end, we can simply append a new entry
+            queue.push(location);
         }
         else {
-            replace(to);
+            // we are in the middle, we remove everything from here in the queue
+            queue.splice(position);
+            queue.push(location);
         }
-        // console.log({ deltaFromCurrent })
-        // Here we could also revert the navigation by calling history.go(-delta)
-        // this listener will have to be adapted to not trigger again and to wait for the url
-        // to be updated before triggering the listeners. Some kind of validation function would also
-        // need to be passed to the listeners so the navigation can be accepted
-        // call all listeners
-        listeners.forEach(listener => {
-            listener(currentLocation.value, from, {
-                delta,
-                type: NavigationType.pop,
-                direction: delta
-                    ? delta > 0
-                        ? NavigationDirection.forward
-                        : NavigationDirection.back
-                    : NavigationDirection.unknown,
-            });
-        });
-    };
-    function pauseListeners() {
-        pauseState = currentLocation.value;
     }
-    function listen(callback) {
-        // setup the listener and prepare teardown callbacks
-        listeners.push(callback);
-        const teardown = () => {
-            const index = listeners.indexOf(callback);
-            if (index > -1)
-                listeners.splice(index, 1);
+    function triggerListeners(to, from, { direction, delta }) {
+        const info = {
+            direction,
+            delta,
+            type: NavigationType.pop,
         };
-        teardowns.push(teardown);
-        return teardown;
-    }
-    function beforeUnloadListener() {
-        const { history } = window;
-        if (!history.state)
-            return;
-        history.replaceState(assign({}, history.state, { scroll: computeScrollPosition() }), '');
-    }
-    function destroy() {
-        for (const teardown of teardowns)
-            teardown();
-        teardowns = [];
-        window.removeEventListener('popstate', popStateHandler);
-        window.removeEventListener('beforeunload', beforeUnloadListener);
-    }
-    // setup the listeners and prepare teardown callbacks
-    window.addEventListener('popstate', popStateHandler);
-    window.addEventListener('beforeunload', beforeUnloadListener);
-    return {
-        pauseListeners,
-        listen,
-        destroy,
-    };
-}
-/**
- * Creates a state object
- */
-function buildState(back, current, forward, replaced = false, computeScroll = false) {
-    return {
-        back,
-        current,
-        forward,
-        replaced,
-        position: window.history.length,
-        scroll: computeScroll ? computeScrollPosition() : null,
-    };
-}
-function useHistoryStateNavigation(base) {
-    const { history, location } = window;
-    // private variables
-    let currentLocation = {
-        value: createCurrentLocation(base, location),
-    };
-    let historyState = { value: history.state };
-    // build current history entry as this is a fresh navigation
-    if (!historyState.value) {
-        changeLocation(currentLocation.value, {
-            back: null,
-            current: currentLocation.value,
-            forward: null,
-            // the length is off by one, we need to decrease it
-            position: history.length - 1,
-            replaced: true,
-            // don't add a scroll as the user may have an anchor and we want
-            // scrollBehavior to be triggered without a saved position
-            scroll: null,
-        }, true);
-    }
-    function changeLocation(to, state, replace) {
-        /**
-         * if a base tag is provided and we are on a normal domain, we have to
-         * respect the provided `base` attribute because pushState() will use it and
-         * potentially erase anything before the `#` like at
-         * https://github.com/vuejs/vue-router-next/issues/685 where a base of
-         * `/folder/#` but a base of `/` would erase the `/folder/` section. If
-         * there is no host, the `<base>` tag makes no sense and if there isn't a
-         * base tag we can just use everything after the `#`.
-         */
-        const hashIndex = base.indexOf('#');
-        const url = hashIndex > -1
-            ? (location.host && document.querySelector('base')
-                ? base
-                : base.slice(hashIndex)) + to
-            : createBaseLocation() + base + to;
-        try {
-            // BROWSER QUIRK
-            // NOTE: Safari throws a SecurityError when calling this function 100 times in 30 seconds
-            history[replace ? 'replaceState' : 'pushState'](state, '', url);
-            historyState.value = state;
-        }
-        catch (err) {
-            {
-                console.error(err);
-            }
-            // Force the navigation, this also resets the call count
-            location[replace ? 'replace' : 'assign'](url);
+        for (let callback of listeners) {
+            callback(to, from, info);
         }
     }
-    function replace(to, data) {
-        const state = assign({}, history.state, buildState(historyState.value.back, 
-        // keep back and forward entries but override current position
-        to, historyState.value.forward, true), data, { position: historyState.value.position });
-        changeLocation(to, state, true);
-        currentLocation.value = to;
-    }
-    function push(to, data) {
-        // Add to current entry the information of where we are going
-        // as well as saving the current position
-        const currentState = assign({}, 
-        // use current history state to gracefully handle a wrong call to
-        // history.replaceState
-        // https://github.com/vuejs/vue-router-next/issues/366
-        historyState.value, history.state, {
-            forward: to,
-            scroll: computeScrollPosition(),
-        });
-        changeLocation(currentState.current, currentState, true);
-        const state = assign({}, buildState(currentLocation.value, to, null), { position: currentState.position + 1 }, data);
-        changeLocation(to, state, false);
-        currentLocation.value = to;
-    }
-    return {
-        location: currentLocation,
-        state: historyState,
-        push,
-        replace,
-    };
-}
-/**
- * Creates an HTML5 history. Most common history for single page applications.
- *
- * @param base -
- */
-function createWebHistory(base) {
-    base = normalizeBase(base);
-    const historyNavigation = useHistoryStateNavigation(base);
-    const historyListeners = useHistoryListeners(base, historyNavigation.state, historyNavigation.location, historyNavigation.replace);
-    function go(delta, triggerListeners = true) {
-        if (!triggerListeners)
-            historyListeners.pauseListeners();
-        history.go(delta);
-    }
-    const routerHistory = assign({
-        // it's overridden right after
-        location: '',
+    const routerHistory = {
+        // rewritten by Object.defineProperty
+        location: START,
+        // TODO: should be kept in queue
+        state: {},
         base,
-        go,
         createHref: createHref.bind(null, base),
-    }, historyNavigation, historyListeners);
+        replace(to) {
+            // remove current entry and decrement position
+            queue.splice(position--, 1);
+            setLocation(to);
+        },
+        push(to, data) {
+            setLocation(to);
+        },
+        listen(callback) {
+            listeners.push(callback);
+            return () => {
+                const index = listeners.indexOf(callback);
+                if (index > -1)
+                    listeners.splice(index, 1);
+            };
+        },
+        destroy() {
+            listeners = [];
+            queue = [START];
+            position = 0;
+        },
+        go(delta, shouldTrigger = true) {
+            const from = this.location;
+            const direction = 
+            // we are considering delta === 0 going forward, but in abstract mode
+            // using 0 for the delta doesn't make sense like it does in html5 where
+            // it reloads the page
+            delta < 0 ? NavigationDirection.back : NavigationDirection.forward;
+            position = Math.max(0, Math.min(position + delta, queue.length - 1));
+            if (shouldTrigger) {
+                triggerListeners(this.location, from, {
+                    direction,
+                    delta,
+                });
+            }
+        },
+    };
     Object.defineProperty(routerHistory, 'location', {
         enumerable: true,
-        get: () => historyNavigation.location.value,
-    });
-    Object.defineProperty(routerHistory, 'state', {
-        enumerable: true,
-        get: () => historyNavigation.state.value,
+        get: () => queue[position],
     });
     return routerHistory;
 }
@@ -9206,7 +9008,7 @@ const routes = [
   { path: "/cart", component: _sfc_main$4 }
 ];
 const router = createRouter({
-  history: createWebHistory(),
+  history: createMemoryHistory(),
   routes
 });
 
