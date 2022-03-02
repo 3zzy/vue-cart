@@ -8,10 +8,18 @@
         </li>
       </ul>
     </div>
+
     <MouseTracker v-slot="{ x, y, count }">
-      <h1>Test Advanced Vue functionality:</h1>
-      <p>Mouse is at: {{ x }}, {{ y }} - {{ count }}</p>
+      <div class="mb-5">
+        <h1>Test scoped slots:</h1>
+        <p>Mouse is at: <strong>{{ x }}</strong>, <strong>{{ y }}</strong></p>
+      </div>
+      <div class="mb-5">
+        <h1>Test injected data:</h1>
+        <p>Cart count: <strong>{{ count }}</strong></p>
+      </div>
     </MouseTracker>
+
     <div class="drawer">
       <input id="drawer-input" type="checkbox" class="drawer-toggle" />
       <div class="bg-base-100 text-base-content min-h-screen drawer-content">
