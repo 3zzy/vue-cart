@@ -6,6 +6,7 @@ import App from "./App.vue";
 import './assets/styles/tailwind.css';
 
 class MyApp extends HTMLElement {
+
     render() {
         const baseUrl = this.getAttribute('base-url') || '';
         const mountId = this.getAttribute('mount-id') || 'app';
@@ -40,11 +41,20 @@ class MyApp extends HTMLElement {
         };
         app.mount(mountNode);
     }
+
     connectedCallback() {
         if (!this.rendered) {
             this.render();
             this.rendered = true;
         }
+    }
+
+    static get observedAttributes() {
+        return ['base-url', 'mount-id'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        this.render();
     }
 }
 customElements.define("my-app", MyApp);
