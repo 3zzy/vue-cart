@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 max-w-7xl mx-auto">
+  <div class="p-4 max-w-7xl mx-auto scoped-style">
     <div class="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
       <ProductCardSkeleton
         v-show="!productStore.loaded"
@@ -24,3 +24,8 @@ const productStore = useProductStore();
 
 const products = computed(() => productStore.list);
 </script>
+<style scoped>
+.scoped-style {
+  color: purple;
+}
+</style>

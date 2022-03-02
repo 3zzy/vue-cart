@@ -10,23 +10,36 @@ class MyApp extends HTMLElement {
         super();
     }
     connectedCallback() {
-        console.log('connectedCallback');
         const mountId = `embeddable-app-test-2121`;
         const shadow = this.attachShadow({ mode: 'open' });
         shadow.innerHTML = `
             <link rel="stylesheet" href="dist/style.css">
-            <div id="${mountId}">test</div>
+            <slot name="title">Title</slot>
+            <slot name="byline">Short Description</slot>
+            <div id="${mountId}"></div>
+            <style>
+            :host {
+                display: block;
+                border: 5px solid blue;
+                padding: 20px;
+            }
+            ::slotted(.title) {
+                color: blue;
+            }
+            ::slotted(.byline) {
+                color: var(--embedded-app-byline-color, blue);
+            }
+            </style>
         `;
         const mountNode = shadow.querySelector(`#${mountId}`);
         const RootStore = createPinia(); // Create Store
         const app = createApp(App); // Create App
         app.use(RootStore); // Use Store
         app.use(router); // Use Router
-        console.log({ document, mountId, mountNode, app });
+        app.config.globalProperties = {
+            $customElement: this
+        };
         app.mount(mountNode);
-    }
-    disconnectedCallback() {
-        console.log('disconnectedCallback');
     }
 }
 customElements.define("my-app", MyApp);
